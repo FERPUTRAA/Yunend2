@@ -7,7 +7,6 @@
 ]
 }
 
-But Vercel support suggested I use the following instead:
 
 {
 "rewrites": [
