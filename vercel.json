@@ -1,1 +1,1 @@
-{"routes": [{"src": "/[^.]+","dest": "/"}](.*)","destination": "/index"}]}
+{"routes": [{"src": "/[^.]+","dest": "/"}]
