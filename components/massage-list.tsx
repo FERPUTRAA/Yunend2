@@ -1,81 +1,78 @@
 'use client'
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
+import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { Card, CardContent } from '@/components/ui/card'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export function MessageForm() {
-  const [message, setMessage] = useState('')
-  const [songUrl, setSongUrl] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+interface Message {
+  id: number
+  content: string
+  spotify_track_id: string
+  created_at: string
+}
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setIsSubmitting(true)
+export function MessageList() {
+  const [messages, setMessages] = useState<Message[]>([])
 
-    try {
-      // Extract Spotify track ID from URL
-      const trackId = songUrl.split('/track/')[1]?.split('?')[0]
-      
-      if (!trackId) {
-        throw new Error('Invalid Spotify URL')
-      }
+  useEffect(() => {
+    // Initial fetch
+    fetchMessages()
 
-      const { error } = await supabase
-        .from('messages')
-        .insert([
-          {
-            content: message,
-            spotify_track_id: trackId,
-          }
-        ])
+    // Subscribe to new messages
+    const channel = supabase
+      .channel('messages')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages' 
+      }, (payload) => {
+        setMessages(prev => [payload.new as Message, ...prev])
+      })
+      .subscribe()
 
-      if (error) throw error
-
-      // Reset form
-      setMessage('')
-      setSongUrl('')
-    } catch (error) {
-      console.error('Error submitting message:', error)
-    } finally {
-      setIsSubmitting(false)
+    return () => {
+      supabase.removeChannel(channel)
     }
+  }, [])
+
+  async function fetchMessages() {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) {
+      console.error('Error fetching messages:', error)
+      return
+    }
+
+    setMessages(data)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Your Message</label>
-        <Textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Write your message here..."
-          required
-          className="min-h-[100px]"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Spotify Song URL</label>
-        <Input
-          type="url"
-          value={songUrl}
-          onChange={(e) => setSongUrl(e.target.value)}
-          placeholder="https://open.spotify.com/track/..."
-          pattern="https://open\.spotify\.com/track/[a-zA-Z0-9]+"
-          required
-        />
-      </div>
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Sending...' : 'Send Message'}
-      </Button>
-    </form>
+    <div className="space-y-4">
+      {messages.map((message) => (
+        <Card key={message.id}>
+          <CardContent className="p-4">
+            <p className="mb-4">{message.content}</p>
+            <iframe
+              src={`https://open.spotify.com/embed/track/${message.spotify_track_id}`}
+              width="100%"
+              height="80"
+              frameBorder="0"
+              allow="encrypted-media"
+              className="rounded"
+            />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   )
 }
 
