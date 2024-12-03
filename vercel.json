@@ -1,1 +1,1 @@
-{"routes": [{"src": "/[^.]+","dest": "/"}]}{"rewrites": [{"source": "/(.*)","destination": "/index"}]}
+{"routes": [{"src": "/[^.]+","dest": "/"}](.*)","destination": "/index"}]}
